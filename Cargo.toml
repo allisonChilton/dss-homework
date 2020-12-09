@@ -1,0 +1,19 @@
+[package]
+name = "dss"
+version = "0.1.0"
+authors = ["Allison Chilton <allison.chilton@outlook.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[dependencies]
+log = { version = "0.4.11", features = ["max_level_debug", "release_max_level_warn"] }
+simple_logger = "1.11.0"
+glium = "0.28.0"
+#gfx = "0.18.2"
+#glutin = "0.12"
+#gfx_window_glutin = "0.31.0"
+reqwest = { version = "0.10", features = ["json", "blocking"]}
+tokio = { version = "0.2", features = ["full"]}
+image = "0.23.12"
