@@ -1,6 +1,5 @@
 extern crate image;
 
-use std::io::Cursor;
 use glium::glutin;
 use glium::Surface;
 
@@ -12,7 +11,7 @@ struct Vertex {
 implement_vertex!(Vertex, position);
 
 pub fn launch_window(){
-    let mut events_loop = glutin::event_loop::EventLoop::new();
+    let events_loop = glutin::event_loop::EventLoop::new();
 
     let wb = glutin::window::WindowBuilder::new().with_inner_size(
         glium::glutin::dpi::LogicalSize::new(1024.0, 768.0)
