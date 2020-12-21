@@ -9,6 +9,7 @@ extern crate glium;
 use log::{info, warn, debug};
 use simple_logger::SimpleLogger;
 use crate::data_loader::load_home_data;
+use graphics_layers::Rectangle;
 
 
 fn main() {
@@ -18,13 +19,8 @@ fn main() {
     }
 
     // let home_data = load_home_data().expect("Couldn't query the API. Aborting");
-    // for key in home_data.keys(){
-    //     println!("{}", key.as_str());
-    // }
+    let home_data = Vec::new();
 
-    graphics_layers::launch_window();
-
-
-
+    graphics_layers::launch_window(home_data);
 
 }

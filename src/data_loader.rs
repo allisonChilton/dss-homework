@@ -20,7 +20,7 @@ impl Error for ConvertError{}
 
 #[allow(non_camel_case_types)]
 #[derive(Copy, Clone)]
-enum SetStyle{
+pub enum SetStyle{
     BecauseYouSet,
     TrendingSet,
     PersonalizedCuratedSet,
@@ -41,7 +41,7 @@ impl SetStyle{
 }
 
 #[derive(Copy, Clone)]
-enum SetType{
+pub enum SetType{
     SetRef,
     CuratedSet
 }
@@ -60,7 +60,7 @@ impl SetType{
 const EMSG: &str = "JSON Parsing error";
 
 #[allow(dead_code)] // TODO
-struct Title{
+pub struct Title{
     id: String,
     name: String,
     release_date: String,
@@ -71,7 +71,7 @@ struct Title{
 
 
 #[allow(dead_code)] // TODO
-struct TitleContainer{
+pub struct TitleContainer{
     set_id: String,
     name: String,
     set_type: SetType,
@@ -231,7 +231,7 @@ fn get_curated_items(con: Container) -> Result<Vec<Title>, Box<dyn Error>>{
 
 
 // with more time I'd make this a less generic error
-pub fn load_home_data()  -> Result<f64, Box<dyn Error>> {
+pub fn load_home_data()  -> Result<Vec<TitleContainer>, Box<dyn Error>> {
     let json_str = if true {
         let resp = reqwest::blocking::get("https://cd-static.bamgrid.com/dp-117731241344/home.json")?;
         resp.text().unwrap()
@@ -278,5 +278,5 @@ pub fn load_home_data()  -> Result<f64, Box<dyn Error>> {
         t_containers.push(tc);
     }
 
-    Ok(1.)
+    Ok(t_containers)
 }
