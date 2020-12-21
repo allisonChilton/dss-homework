@@ -2,6 +2,7 @@ extern crate image;
 
 use glium::glutin;
 use glium::Surface;
+use glium::backend::glutin::glutin::event::Event;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -9,6 +10,35 @@ struct Vertex {
 }
 
 implement_vertex!(Vertex, position);
+
+fn keyboard_input(event: &glutin::event::WindowEvent<'_>, mut debounce: &mut bool) -> (i32, i32) {
+    let input = match *event {
+        glutin::event::WindowEvent::KeyboardInput { input, .. } => input,
+        _ => return (0, 0),
+    };
+    let pressed = input.state == glutin::event::ElementState::Pressed;
+    if pressed && !*debounce{
+        *debounce = true;
+    }else if pressed && *debounce{
+        return (0, 0);
+    }else{
+        *debounce = false;
+        return (0, 0);
+    }
+    let key = match input.virtual_keycode {
+        Some(key) => key,
+        None => return (0, 0),
+    };
+    match key {
+        glutin::event::VirtualKeyCode::Up => (0,-1),
+        glutin::event::VirtualKeyCode::Down => (0, 1),
+        glutin::event::VirtualKeyCode::Left => (-1, 0),
+        glutin::event::VirtualKeyCode::Right => (1, 0),
+        glutin::event::VirtualKeyCode::Return => (1, 1),
+        _ => (0, 0),
+    }
+}
+
 
 pub fn launch_window(){
     let events_loop = glutin::event_loop::EventLoop::new();
@@ -47,10 +77,10 @@ pub fn launch_window(){
 
     let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
 
+    let mut debounce = false;
 
     // add listen handler for window close request
     events_loop.run(move |ev, _, control_flow|{
-
         let mut target = display.draw();
         target.clear_color(0.01, 0.01, 0.01, 1.0);
         target.draw(&vertex_buffer, &indices, &program, &glium::uniforms::EmptyUniforms, &Default::default()).unwrap();
@@ -65,6 +95,13 @@ pub fn launch_window(){
                     *control_flow = glutin::event_loop::ControlFlow::Exit;
                     return;
                 },
+                glutin::event::WindowEvent::KeyboardInput { .. } => {
+                    let input = keyboard_input(&event, &mut debounce);
+                    if input != (0,0) {
+                        println!("{} {}", input.0, input.1);
+                    }
+                }
+
                 _ => return,
             },
             _ => (),

@@ -16,7 +16,7 @@ fn main() {
         Err(e) => panic!("Couldn't initialize basic logger. Error {}. Aborting", e)
     }
 
-    let home_data = load_home_data().expect("Couldn't query the API. Aborting");
+    // let home_data = load_home_data().expect("Couldn't query the API. Aborting");
     // for key in home_data.keys(){
     //     println!("{}", key.as_str());
     // }
