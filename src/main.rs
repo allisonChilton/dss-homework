@@ -1,3 +1,4 @@
+#![allow(warnings, unused)]
 mod graphics_layers;
 mod data_loader;
 
