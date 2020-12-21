@@ -1,5 +1,6 @@
 extern crate image;
 extern crate cgmath;
+extern crate glium_text_rusttype as glium_text;
 use crate::data_loader;
 
 use cgmath::{Matrix4, Vector2};
@@ -15,6 +16,7 @@ use glium::texture::RawImage2d;
 use std::collections::HashMap;
 use data_loader::TitleContainer;
 use std::borrow::BorrowMut;
+use crate::data_loader::Title;
 
 
 #[derive(Copy, Clone)]
@@ -67,6 +69,22 @@ impl Rectangle{
         frame.draw(&vb, indices, program, &uniforms, &Default::default()).unwrap();
 
     }
+
+    fn get_nw_corner(&self)->(f32, f32){
+        let rect_size = Vector2 {
+            x: self.size[0],
+            y: self.size[1],
+        };
+
+        let mut rect_position = Vector2 {
+            x: self.center[0],
+            y: self.center[1],
+        };
+
+        let left = rect_position.x - rect_size.x / 2.0;
+        let bottom = rect_position.y - rect_size.y / 2.0;
+        (left, bottom)
+    }
 }
 
 implement_vertex!(Vertex, position);
@@ -101,12 +119,12 @@ fn keyboard_input(event: &glutin::event::WindowEvent<'_>, debounce: &mut bool) -
 
 const SCREEN_WIDTH: u32 = 1024;
 const SCREEN_HEIGHT: u32 = 768;
-const num_rows: u32 = 4;
-const num_cols: u32 = 6;
-const padding: u32 = 16;
-const center_dist_horz: u32 = SCREEN_WIDTH / num_cols;
-const center_dist_vert: u32 = SCREEN_HEIGHT / num_rows;
-const tile_size: f32 = (SCREEN_WIDTH / num_cols - (padding * 2)) as f32;
+const NUM_ROWS: u32 = 4;
+const NUM_COLS: u32 = 6;
+const PADDING: u32 = 16;
+const CENTER_DIST_HORZ: u32 = SCREEN_WIDTH / NUM_COLS;
+const CENTER_DIST_VERT: u32 = SCREEN_HEIGHT / NUM_ROWS;
+const TILE_SIZE: f32 = (SCREEN_WIDTH / NUM_COLS - (PADDING * 2)) as f32;
 
 
 const VERTEX_SHADER_SRC: &str = r#"
@@ -155,31 +173,46 @@ struct Menu{
     selected_tile: [i32; 2],
     tiles: Vec<Vec<Rectangle>>,
     texture_map: HashMap<&'static str, Texture2d>,
-    selection_square: Rectangle
+    selection_square: Rectangle,
+    headings: Vec<&'static str>,
+    popup: Rectangle,
+    popup_enabled: bool
 }
 
 impl Menu{
     fn new()->Menu{
         let mut active_rows: Vec<Vec<Rectangle>> = Vec::new();
-        for row_num in 1..num_rows{
+        for row_num in 1..NUM_ROWS {
             let mut active_cols: Vec<Rectangle> = Vec::new();
-            for col_num in 1..num_cols{
+            for col_num in 1..NUM_COLS {
                 active_cols.push(Rectangle{
-                    center: [(col_num * center_dist_horz) as f32, (row_num * center_dist_vert) as f32],
-                    size: [tile_size, tile_size],
+                    center: [(col_num * CENTER_DIST_HORZ) as f32, (row_num * CENTER_DIST_VERT) as f32],
+                    size: [TILE_SIZE, TILE_SIZE],
                     texture_key: "asdf"
                 })
             }
             active_rows.push(active_cols);
         }
+        active_rows[0][0].size = [Menu::selected_tile_size(); 2];
 
         let hm = HashMap::new();
         let ctile = active_rows.get(0).unwrap().get(0).unwrap().center.clone();
-        Menu{ selected_tile: [0; 2], tiles: active_rows, texture_map: hm, selection_square: Rectangle {
-            center: ctile,
-            size: [Menu::selection_backdrop_size(); 2],
-            texture_key: "whitesquare"
-        } }
+        Menu{ selected_tile: [0; 2],
+            tiles: active_rows,
+            texture_map: hm,
+            selection_square: Rectangle {
+                center: ctile,
+                size: [Menu::selection_backdrop_size(); 2],
+                texture_key: "whitesquare",
+            },
+            headings: vec!["this is a test", "yet another test", "and again a test"],
+            popup: Rectangle{
+                center: [SCREEN_WIDTH as f32 / 2., SCREEN_HEIGHT as f32 / 2.],
+                size: [SCREEN_WIDTH as f32 * 0.5, SCREEN_HEIGHT as f32 * 0.9],
+                texture_key: "popup"
+            },
+            popup_enabled: false
+        }
     }
 
     fn add_texture(&mut self, path: &str, key: &'static str, display: &glium::Display){
@@ -192,20 +225,26 @@ impl Menu{
 
     fn change_selected_tile(&mut self, change: (i32, i32)){
         let (x, y) = change;
+        if x == 1 && y == 1{
+            self.popup_enabled = true;
+            return;
+        }else{
+            self.popup_enabled = false;
+        }
         let (lx, ly) = (self.selected_tile[0] as usize, self.selected_tile[1] as usize);
         match self{
             Menu{ref mut tiles, ..} => match tiles[lx][ly]{
                 Rectangle{ref mut size, .. } => {
-                    size[0] = tile_size;
-                    size[1] = tile_size;
+                    size[0] = TILE_SIZE;
+                    size[1] = TILE_SIZE;
                 }
             }
         }
 
         self.selected_tile[0] += y;
         self.selected_tile[1] += x;
-        self.selected_tile[0] = self.selected_tile[0].max(0).min(num_rows as i32 - 2);
-        self.selected_tile[1] = self.selected_tile[1].max(0).min(num_cols as i32 - 2);
+        self.selected_tile[0] = self.selected_tile[0].max(0).min(NUM_ROWS as i32 - 2);
+        self.selected_tile[1] = self.selected_tile[1].max(0).min(NUM_COLS as i32 - 2);
         println!("{} {}",self.selected_tile[0], self.selected_tile[1]);
         let (nx, ny) = (self.selected_tile[0] as usize, self.selected_tile[1] as usize);
         let sel_center = self.selection_square.borrow_mut().center.as_mut();
@@ -222,15 +261,68 @@ impl Menu{
     }
 
     fn selection_backdrop_size()->f32{
-        return ((tile_size as u32) + (padding * 2) + 8) as f32;
+        return ((TILE_SIZE as f32) + (PADDING as f32 * 1.25) + 4.) as f32;
     }
 
     fn selected_tile_size()->f32{
-        return (tile_size as u32 + (padding * 2)) as f32;
+        return (TILE_SIZE as f32 + (PADDING as f32 * 1.25)) as f32;
+    }
+
+    fn x_y_to_mat(x: f32, y: f32) -> (f32, f32) {
+        let xrise = 1. - (-1.);
+        let xrun = (SCREEN_WIDTH as f32);
+        let xslope = xrise / xrun;
+        let xb = 1. - (SCREEN_WIDTH as f32 * xslope);
+        let retx = xslope * x + xb;
+
+        let yrise = 1. - (-1.);
+        let yrun = (SCREEN_HEIGHT as f32);
+        let yslope = yrise / yrun;
+        let yb = 1. - (SCREEN_HEIGHT as f32 * yslope);
+        let rety = -(yslope * y + yb);
+        (retx , rety)
+    }
+
+    fn write_popup(&self, title: &Title, frame: &mut glium::Frame, text_system: &glium_text::TextSystem, font: &glium_text::FontTexture){
+        let tstr = title.to_string();
+        let strings = tstr.lines();
+        let (xoffset, yoffset) = self.popup.get_nw_corner();
+
+        for (idx, s) in strings.enumerate(){
+            let text = glium_text::TextDisplay::new(text_system, font, s);
+            let (x, y) = Menu::x_y_to_mat(xoffset + 32., yoffset + 64. + (32. * idx as f32));
+            const tsize: f32 = 0.05;
+            let loc_mat: [[f32; 4]; 4] = cgmath::Matrix4::new(
+                tsize, 0.0, 0.0, 0.0,
+                0.0, tsize, 0.0, 0.0,
+                0.0, 0.0, tsize, 0.0,
+                x, y, 0.0, 1.0f32,
+            ).into();
+            glium_text::draw(&text, text_system, frame, loc_mat, (1.0, 1.0, 1.0, 1.0)).unwrap();
+        }
     }
 
     fn draw(&mut self, frame: &mut glium::Frame, indices: &glium::IndexBuffer<u16>, display: &glium::Display,
-            program: &glium::Program, perspective: [[f32; 4]; 4]) {
+            program: &glium::Program, perspective: [[f32; 4]; 4], text_system: &glium_text::TextSystem, font: &glium_text::FontTexture) {
+
+        if self.headings.len() >= 3{
+            for (idx, heading) in self.headings.iter().enumerate(){
+                let text = glium_text::TextDisplay::new(text_system, font, heading);
+                let yoffset = self.tiles[idx][0].center[1] - TILE_SIZE as f32 / 2. - (PADDING as f32);
+                let xoffset = self.tiles[idx][0].center[0] - TILE_SIZE as f32 / 2.;
+
+                let (x, y) = Menu::x_y_to_mat(xoffset, yoffset);
+                const tsize: f32 = 0.05;
+                let loc_mat: [[f32; 4]; 4] = cgmath::Matrix4::new(
+                    tsize, 0.0, 0.0, 0.0,
+                    0.0, tsize, 0.0, 0.0,
+                    0.0, 0.0, tsize, 0.0,
+                    x, y, 0.0, 1.0f32,
+                ).into();
+
+                glium_text::draw(&text, text_system, frame, loc_mat, (1.0, 1.0, 1.0, 1.0)).unwrap();
+            }
+        }
 
         let tile = self.selection_square.borrow_mut();
         tile.draw(frame, indices, display, program, &self.texture_map, perspective);
@@ -240,6 +332,17 @@ impl Menu{
             }
         }
 
+        if self.popup_enabled{
+            self.popup.draw(frame, indices, display, program, &self.texture_map, perspective);
+            let title = Title{
+                id: "asdf".to_string(),
+                name: "Hello World".to_string(),
+                release_date: "1984".to_string(),
+                rating: "PG-13".to_string(),
+                image_url: "".to_string()
+            };
+            self.write_popup(&title, frame, text_system, font);
+        }
     }
 }
 
@@ -254,6 +357,9 @@ pub fn launch_window(title_data: Vec<TitleContainer>){
 
     let display = glium::Display::new(wb, cb, &events_loop).unwrap();
 
+    let text_system = glium_text::TextSystem::new(&display);
+
+    let font = glium_text::FontTexture::new(&display, &include_bytes!("OpenSans-Bold.ttf")[..], 70, glium_text::FontTexture::ascii_character_list()).unwrap();
 
 
 
@@ -292,13 +398,19 @@ pub fn launch_window(title_data: Vec<TitleContainer>){
     let mut menu = Menu::new();
     menu.add_texture("derp2.png","asdf", &display);
     menu.add_texture("whitesquare.png","whitesquare", &display);
+    menu.add_texture("popup.png","popup", &display);
+
+    let mut redraw = true;
 
     // add listen handler for window close request
     events_loop.run(move |ev, _, control_flow|{
-        let mut target = display.draw();
-        target.clear_color(0.01, 0.01, 0.01, 1.0);
-        menu.draw(&mut target, &indices, &display, &program,  perspective);
-        target.finish().unwrap();
+        if redraw {
+            let mut target = display.draw();
+            target.clear_color(0.01, 0.01, 0.01, 1.0);
+            menu.draw(&mut target, &indices, &display, &program, perspective, &text_system, &font);
+            target.finish().unwrap();
+            redraw = false;
+        }
 
         let next_frame_time = std::time::Instant::now() +
             std::time::Duration::from_nanos(166_666_667);
@@ -315,6 +427,7 @@ pub fn launch_window(title_data: Vec<TitleContainer>){
                         println!("{} {}", input.0, input.1);
                         menu.change_selected_tile(input);
                     }
+                    redraw = true;
                 }
 
                 _ => return,

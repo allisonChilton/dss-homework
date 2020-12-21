@@ -11,6 +11,7 @@ edition = "2018"
 log = { version = "0.4.11", features = ["max_level_debug", "release_max_level_warn"] }
 simple_logger = "1.11.0"
 glium = "0.28.0"
+glium_text_rusttype = { git = "https://github.com/not-fl3/glium_text_rusttype", rev="862a6158fa3fdd9588574c904364ccc4386928de"}
 #gfx = "0.18.2"
 #glutin = "0.12"
 #gfx_window_glutin = "0.31.0"

@@ -61,12 +61,18 @@ const EMSG: &str = "JSON Parsing error";
 
 #[allow(dead_code)] // TODO
 pub struct Title{
-    id: String,
-    name: String,
-    release_date: String,
-    rating: String,
-    image_url: String
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) release_date: String,
+    pub(crate) rating: String,
+    pub(crate) image_url: String
 
+}
+
+impl Title {
+    pub(crate) fn to_string(&self) -> String {
+         format!("Title: {}\nRelease Date: {}\nRating: {}", self.name, self.release_date, self.rating)
+    }
 }
 
 
