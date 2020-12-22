@@ -2,7 +2,7 @@ extern crate futures;
 mod home;
 mod dynset;
 
-use futures::future::{join_all, try_join_all};
+use futures::future::{join_all};
 use std::error::Error;
 use std::fs::File;
 use std::fmt;
@@ -11,7 +11,7 @@ use home::HomeData;
 use home::Container;
 use dynset::Dynset;
 use std::collections::{HashMap, HashSet};
-use image::{DynamicImage, RgbImage};
+use image::{RgbImage};
 
 #[derive(Debug)]
 struct ConvertError(String);
@@ -63,7 +63,7 @@ impl SetType{
 
 const EMSG: &str = "JSON Parsing error";
 
-#[allow(dead_code)] // TODO
+#[allow(dead_code)]
 pub struct Title{
     pub(crate) id: String,
     pub(crate) name: String,
@@ -80,7 +80,6 @@ impl Title {
 }
 
 
-#[allow(dead_code)] // TODO
 pub struct TitleContainer{
     pub set_id: String,
     pub name: String,

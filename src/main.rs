@@ -1,4 +1,3 @@
-#![allow(warnings, unused)]
 mod graphics_layers;
 mod data_loader;
 
@@ -6,10 +5,9 @@ mod data_loader;
 extern crate glium;
 
 
-use log::{info, warn, debug};
+use log::{debug};
 use simple_logger::SimpleLogger;
 use crate::data_loader::{load_home_data, get_image_cache};
-use graphics_layers::Rectangle;
 
 
 fn main() {

@@ -7,16 +7,10 @@ use cgmath::{Matrix4, Vector2};
 use glium::glutin;
 use glium::Surface;
 use glium::texture::Texture2d;
-use glium::backend::glutin::glutin::event::Event;
-use image::io::Reader as ImageReader;
-use image::DynamicImage;
-use std::rc::Rc;
-use self::image::{image_dimensions, RgbImage};
-use glium::texture::RawImage2d;
+use self::image::{RgbImage};
 use std::collections::HashMap;
 use data_loader::TitleContainer;
 use std::borrow::BorrowMut;
-use crate::data_loader::Title;
 
 
 #[derive(Copy, Clone)]
@@ -42,7 +36,7 @@ impl Rectangle{
             y: self.size[1],
         };
 
-        let mut rect_position = Vector2 {
+        let rect_position = Vector2 {
             x: self.center[0],
             y: self.center[1],
         };
@@ -79,7 +73,7 @@ impl Rectangle{
             y: self.size[1],
         };
 
-        let mut rect_position = Vector2 {
+        let rect_position = Vector2 {
             x: self.center[0],
             y: self.center[1],
         };
@@ -261,7 +255,7 @@ impl Menu{
     fn change_selected_tile(&mut self, change: (i32, i32)){
         let (x, y) = change;
         if x == 1 && y == 1{
-            self.popup_enabled = true;
+            self.popup_enabled = !self.popup_enabled;
             return;
         }else{
             self.popup_enabled = false;
@@ -328,13 +322,13 @@ impl Menu{
 
     fn x_y_to_mat(x: f32, y: f32) -> (f32, f32) {
         let xrise = 1. - (-1.);
-        let xrun = (SCREEN_WIDTH as f32);
+        let xrun = SCREEN_WIDTH as f32;
         let xslope = xrise / xrun;
         let xb = 1. - (SCREEN_WIDTH as f32 * xslope);
         let retx = xslope * x + xb;
 
         let yrise = 1. - (-1.);
-        let yrun = (SCREEN_HEIGHT as f32);
+        let yrun = SCREEN_HEIGHT as f32;
         let yslope = yrise / yrun;
         let yb = 1. - (SCREEN_HEIGHT as f32 * yslope);
         let rety = -(yslope * y + yb);
@@ -348,11 +342,11 @@ impl Menu{
         for (idx, s) in strings.enumerate(){
             let text = glium_text::TextDisplay::new(text_system, font, s);
             let (x, y) = Menu::x_y_to_mat(xoffset + 32., yoffset + 64. + (32. * idx as f32));
-            const tsize: f32 = 0.05;
+            const TSIZE: f32 = 0.05;
             let loc_mat: [[f32; 4]; 4] = cgmath::Matrix4::new(
-                tsize, 0.0, 0.0, 0.0,
-                0.0, tsize, 0.0, 0.0,
-                0.0, 0.0, tsize, 0.0,
+                TSIZE, 0.0, 0.0, 0.0,
+                0.0, TSIZE, 0.0, 0.0,
+                0.0, 0.0, TSIZE, 0.0,
                 x, y, 0.0, 1.0f32,
             ).into();
             glium_text::draw(&text, text_system, frame, loc_mat, (1.0, 1.0, 1.0, 1.0)).unwrap();
@@ -374,11 +368,11 @@ impl Menu{
             let xoffset = self.tiles[tidx][0].center[0] - TILE_SIZE as f32 / 2.;
 
             let (x, y) = Menu::x_y_to_mat(xoffset, yoffset);
-            const tsize: f32 = 0.05;
+            const TSIZE: f32 = 0.05;
             let loc_mat: [[f32; 4]; 4] = cgmath::Matrix4::new(
-                tsize, 0.0, 0.0, 0.0,
-                0.0, tsize, 0.0, 0.0,
-                0.0, 0.0, tsize, 0.0,
+                TSIZE, 0.0, 0.0, 0.0,
+                0.0, TSIZE, 0.0, 0.0,
+                0.0, 0.0, TSIZE, 0.0,
                 x, y, 0.0, 1.0f32,
             ).into();
 
