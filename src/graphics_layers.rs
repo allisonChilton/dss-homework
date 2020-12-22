@@ -11,7 +11,7 @@ use glium::backend::glutin::glutin::event::Event;
 use image::io::Reader as ImageReader;
 use image::DynamicImage;
 use std::rc::Rc;
-use self::image::image_dimensions;
+use self::image::{image_dimensions, RgbImage};
 use glium::texture::RawImage2d;
 use std::collections::HashMap;
 use data_loader::TitleContainer;
@@ -28,13 +28,13 @@ struct Vertex {
 pub(crate) struct Rectangle {
     pub(crate) center: [f32; 2],
     pub(crate) size: [f32; 2],
-    pub(crate) texture_key: &'static str,
+    pub(crate) texture_key: String,
 }
 
 impl Rectangle{
 
     fn draw(&self, frame: &mut glium::Frame, indices: &glium::IndexBuffer<u16>, display: &glium::Display,
-            program: &glium::Program, tex_cache: &HashMap<&str, Texture2d>, perspective: [[f32; 4]; 4]){
+            program: &glium::Program, tex_cache: &HashMap<String, Texture2d>, perspective: [[f32; 4]; 4]){
 
         let vb = glium::VertexBuffer::empty_dynamic(display, 4).unwrap();
         let rect_size = Vector2 {
@@ -60,7 +60,10 @@ impl Rectangle{
         let shape = vec![v0, v1, v2, v3];
         vb.write(&shape);
 
-        let texture = tex_cache.get(self.texture_key).unwrap();
+        let texture = match tex_cache.get(&self.texture_key){
+            Some(e) => e,
+            None => tex_cache.get("whitesquare").expect("missing fallback texture")
+        };
 
         let uniforms = uniform!{
             projection: perspective,
@@ -172,33 +175,41 @@ const FRAGMENT_SHADER_SRC: &str = r#"
 struct Menu{
     selected_tile: [i32; 2],
     tiles: Vec<Vec<Rectangle>>,
-    texture_map: HashMap<&'static str, Texture2d>,
+    texture_map: HashMap<String, Texture2d>,
     selection_square: Rectangle,
     headings: Vec<String>,
     popup: Rectangle,
     popup_enabled: bool,
     row_offset: i32,
-    col_offsets: Vec<i32>
+    col_offsets: Vec<i32>,
+    titles: Vec<TitleContainer>,
+    title_desc_lookup: HashMap<String, String>
 }
 
 impl Menu{
-    fn new(titles: &Vec<TitleContainer>)->Menu{
+    fn new(titles: Vec<TitleContainer>)->Menu{
         let mut active_rows: Vec<Vec<Rectangle>> = Vec::new();
         for row_num in 1..NUM_ROWS {
+            let trow = &titles[row_num as usize - 1];
             let mut active_cols: Vec<Rectangle> = Vec::new();
             for col_num in 1..NUM_COLS {
+                let tkey = trow.items[col_num as usize - 1].image_url.clone();
                 active_cols.push(Rectangle{
                     center: [(col_num * CENTER_DIST_HORZ) as f32, (row_num * CENTER_DIST_VERT) as f32],
                     size: [TILE_SIZE, TILE_SIZE],
-                    texture_key: "asdf"
+                    texture_key: tkey
                 })
             }
             active_rows.push(active_cols);
         }
         active_rows[0][0].size = [Menu::selected_tile_size(); 2];
         let mut headings: Vec<String> = Vec::new();
-        for t in titles{
+        let mut tlookup = HashMap::new();
+        for t in &titles{
             headings.push(t.name.clone());
+            for t2 in &t.items{
+                tlookup.insert(t2.image_url.clone(), t2.to_string());
+            }
         }
 
         let hm = HashMap::new();
@@ -209,22 +220,38 @@ impl Menu{
             selection_square: Rectangle {
                 center: ctile,
                 size: [Menu::selection_backdrop_size(); 2],
-                texture_key: "whitesquare",
+                texture_key: "whitesquare".to_string(),
             },
             headings: headings,
             popup: Rectangle{
                 center: [SCREEN_WIDTH as f32 / 2., SCREEN_HEIGHT as f32 / 2.],
                 size: [SCREEN_WIDTH as f32 * 0.5, SCREEN_HEIGHT as f32 * 0.9],
-                texture_key: "popup"
+                texture_key: "popup".to_string()
             },
             popup_enabled: false,
             row_offset: 0,
-            col_offsets: vec![0; titles.len()]
+            col_offsets: vec![0; titles.len()],
+            titles: titles,
+            title_desc_lookup: tlookup
         }
     }
 
-    fn add_texture(&mut self, path: &str, key: &'static str, display: &glium::Display){
+    fn update_tile_textures(&mut self){
+        for row_num in 0..(NUM_ROWS-1) as usize {
+            for col_num in 0..(NUM_COLS-1) as usize {
+                let t: &mut Rectangle = &mut self.tiles[row_num][col_num];
+                let cidx = row_num + self.row_offset as usize;
+                t.texture_key = self.titles[cidx].items[col_num + self.col_offsets[cidx] as usize].image_url.clone();
+            }
+        }
+    }
+
+    fn add_texture_from_path(&mut self, path: &str, key: String, display: &glium::Display){
         let image = image::open(path).unwrap().to_rgb8();
+        self.add_texture_from_rgb(image, key, display);
+    }
+
+    fn add_texture_from_rgb(&mut self, image: RgbImage, key: String, display: &glium::Display){
         let dim = image.dimensions();
         let img = glium::texture::RawImage2d::from_raw_rgb(image.into_raw(), dim);
         let tex: glium::texture::Texture2d = glium::texture::Texture2d::new(display, img).unwrap();
@@ -251,15 +278,32 @@ impl Menu{
 
         self.selected_tile[0] += y;
         self.selected_tile[1] += x;
+
+        // change the row or column if on edge of screen
         if self.selected_tile[0] < 0{
             self.selected_tile[0] = 0;
             self.row_offset = (self.row_offset - 1).max(0);
+            self.update_tile_textures();
         }else if self.selected_tile[0] > NUM_ROWS as i32 - 2{
             self.selected_tile[0] = NUM_ROWS as i32 - 2;
             self.row_offset = (self.row_offset + 1).min((self.headings.len() - NUM_ROWS as usize - 1) as i32);
+            self.update_tile_textures();
+        }else if self.selected_tile[1] < 0{
+            self.selected_tile[1] = 0;
+            let current_row = (self.row_offset + self.selected_tile[0]) as usize;
+            self.col_offsets[current_row] -= 1;
+            self.col_offsets[current_row] = self.col_offsets[current_row].max(0);
+            self.update_tile_textures();
+        }else if self.selected_tile[1] > NUM_COLS as i32 - 2{
+            self.selected_tile[1] = NUM_COLS as i32 - 2;
+            let current_row = (self.row_offset + self.selected_tile[0]) as usize;
+            self.col_offsets[current_row] += 1;
+            self.col_offsets[current_row] = self.col_offsets[current_row].min((self.titles[current_row].items.len() - NUM_COLS as usize) as i32);
+            self.update_tile_textures();
         }
-        self.selected_tile[1] = self.selected_tile[1].max(0).min(NUM_COLS as i32 - 2);
-        println!("{} {}",self.selected_tile[0], self.selected_tile[1]);
+
+        let current_row = (self.row_offset + self.selected_tile[0]) as usize;
+        println!("Current Row: {}, Col Offset: {}",current_row, self.col_offsets[current_row]);
         let (nx, ny) = (self.selected_tile[0] as usize, self.selected_tile[1] as usize);
         let sel_center = self.selection_square.borrow_mut().center.as_mut();
         match self{
@@ -297,8 +341,7 @@ impl Menu{
         (retx , rety)
     }
 
-    fn write_popup(&self, title: &Title, frame: &mut glium::Frame, text_system: &glium_text::TextSystem, font: &glium_text::FontTexture){
-        let tstr = title.to_string();
+    fn write_popup(&self, tstr: &String, frame: &mut glium::Frame, text_system: &glium_text::TextSystem, font: &glium_text::FontTexture){
         let strings = tstr.lines();
         let (xoffset, yoffset) = self.popup.get_nw_corner();
 
@@ -319,7 +362,7 @@ impl Menu{
     fn draw(&mut self, frame: &mut glium::Frame, indices: &glium::IndexBuffer<u16>, display: &glium::Display,
             program: &glium::Program, perspective: [[f32; 4]; 4], text_system: &glium_text::TextSystem, font: &glium_text::FontTexture) {
 
-        // for (idx, heading) in self.headings.iter().enumerate(){
+        // draw text
         for (tidx, ridx) in (self.row_offset..self.row_offset+NUM_ROWS as i32-1).enumerate(){
             let idx = ridx as usize;
             let heading = match self.headings.get(idx){
@@ -342,8 +385,11 @@ impl Menu{
             glium_text::draw(&text, text_system, frame, loc_mat, (1.0, 1.0, 1.0, 1.0)).unwrap();
         }
 
+        // draw selection border
         let tile = self.selection_square.borrow_mut();
         tile.draw(frame, indices, display, program, &self.texture_map, perspective);
+
+        // draw tiles
         for row in &self.tiles{
             for tile in row {
                 tile.draw(frame, indices, display, program, &self.texture_map, perspective);
@@ -352,19 +398,14 @@ impl Menu{
 
         if self.popup_enabled{
             self.popup.draw(frame, indices, display, program, &self.texture_map, perspective);
-            let title = Title{
-                id: "asdf".to_string(),
-                name: "Hello World".to_string(),
-                release_date: "1984".to_string(),
-                rating: "PG-13".to_string(),
-                image_url: "".to_string()
-            };
-            self.write_popup(&title, frame, text_system, font);
+            let (i1, i2) = (self.selected_tile[0] as usize, self.selected_tile[1] as usize);
+            let title_str = self.title_desc_lookup.get(self.tiles[i1][i2].texture_key.as_str()).unwrap();
+            self.write_popup(&title_str, frame, text_system, font);
         }
     }
 }
 
-pub fn launch_window(title_data: Vec<TitleContainer>){
+pub fn launch_window(title_data: Vec<TitleContainer>, img_cache: HashMap<String, RgbImage>){
     let events_loop = glutin::event_loop::EventLoop::new();
 
     let wb = glutin::window::WindowBuilder::new().with_inner_size(
@@ -408,10 +449,13 @@ pub fn launch_window(title_data: Vec<TitleContainer>){
 
     let mut debounce = false;
 
-    let mut menu = Menu::new(&title_data);
-    menu.add_texture("derp2.png","asdf", &display);
-    menu.add_texture("whitesquare.png","whitesquare", &display);
-    menu.add_texture("popup.png","popup", &display);
+    let mut menu = Menu::new(title_data);
+    // menu.add_texture("derp2.png","asdf", &display);
+    menu.add_texture_from_path("whitesquare.png", "whitesquare".to_string(), &display);
+    menu.add_texture_from_path("popup.png", "popup".to_string(), &display);
+    for (key, img) in img_cache{
+        menu.add_texture_from_rgb(img, key, &display);
+    }
 
     let mut redraw = true;
 

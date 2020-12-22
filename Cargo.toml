@@ -16,9 +16,10 @@ glium_text_rusttype = { git = "https://github.com/not-fl3/glium_text_rusttype", 
 #glutin = "0.12"
 #gfx_window_glutin = "0.31.0"
 reqwest = { version = "0.10", features = ["json", "blocking"]}
-tokio = { version = "0.2", features = ["full"]}
+tokio = { version = "0.2", features = ["full", "rt-core"]}
 image = "0.23.12"
 serde = {version = "1.0.118", features = ["derive"] }
 serde_derive = "1.0"
 serde_json = "1.0.60"
 cgmath = "0.17.0"
+futures = "0.3.8"

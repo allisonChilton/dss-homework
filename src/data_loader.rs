@@ -1,6 +1,8 @@
+extern crate futures;
 mod home;
 mod dynset;
 
+use futures::future::{join_all, try_join_all};
 use std::error::Error;
 use std::fs::File;
 use std::fmt;
@@ -8,6 +10,8 @@ use std::io::{Read};
 use home::HomeData;
 use home::Container;
 use dynset::Dynset;
+use std::collections::{HashMap, HashSet};
+use image::{DynamicImage, RgbImage};
 
 #[derive(Debug)]
 struct ConvertError(String);
@@ -235,6 +239,40 @@ fn get_curated_items(con: Container) -> Result<Vec<Title>, Box<dyn Error>>{
     Ok(itemv)
 }
 
+pub fn get_image_cache(tc: &Vec<TitleContainer>)-> HashMap<String, RgbImage>{
+    let mut urls: HashSet<String> = HashSet::new();
+    let mut hm = HashMap::new();
+    for t in tc{
+        for i in &t.items{
+            urls.insert(i.image_url.clone());
+        }
+    }
+    let cl = reqwest::Client::new();
+    let mut futs = Vec::new();
+    for url in urls{
+        let r = cl.get(&url);
+        let fut = cl.execute(r.build().unwrap());
+        futs.push(fut);
+    }
+    // let retdata = futures::stream::collect
+    let af = async {
+        let results = join_all(futs).await;
+        for r in results{
+            let resp = r.unwrap();
+            let key = resp.url().to_string().clone();
+            let imgdata = resp.bytes().await.unwrap();
+            let img = match image::load_from_memory(&imgdata){
+                Ok(e) => e.to_rgb8(),
+                Err(_) => continue
+            };
+            hm.insert(key, img);
+        }
+    };
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(af);
+
+    hm
+}
 
 // with more time I'd make this a less generic error
 pub fn load_home_data()  -> Result<Vec<TitleContainer>, Box<dyn Error>> {
