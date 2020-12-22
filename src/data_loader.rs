@@ -78,11 +78,11 @@ impl Title {
 
 #[allow(dead_code)] // TODO
 pub struct TitleContainer{
-    set_id: String,
-    name: String,
-    set_type: SetType,
-    style: SetStyle,
-    items: Vec<Title>
+    pub set_id: String,
+    pub name: String,
+    pub set_type: SetType,
+    pub style: SetStyle,
+    pub items: Vec<Title>
 }
 
 

@@ -18,8 +18,8 @@ fn main() {
         Err(e) => panic!("Couldn't initialize basic logger. Error {}. Aborting", e)
     }
 
-    // let home_data = load_home_data().expect("Couldn't query the API. Aborting");
-    let home_data = Vec::new();
+    let home_data = load_home_data().expect("Couldn't query the API. Aborting");
+    // let home_data = Vec::new();
 
     graphics_layers::launch_window(home_data);
 
