@@ -240,6 +240,7 @@ impl Menu{
         }
     }
 
+    #[allow(dead_code)]
     fn add_texture_from_path(&mut self, path: &str, key: String, display: &glium::Display){
         let image = image::open(path).unwrap().to_rgb8();
         self.add_texture_from_rgb(image, key, display);
@@ -296,8 +297,8 @@ impl Menu{
             self.update_tile_textures();
         }
 
-        let current_row = (self.row_offset + self.selected_tile[0]) as usize;
-        println!("Current Row: {}, Col Offset: {}",current_row, self.col_offsets[current_row]);
+        // let current_row = (self.row_offset + self.selected_tile[0]) as usize;
+        // println!("Current Row: {}, Col Offset: {}",current_row, self.col_offsets[current_row]);
         let (nx, ny) = (self.selected_tile[0] as usize, self.selected_tile[1] as usize);
         let sel_center = self.selection_square.borrow_mut().center.as_mut();
         match self{
@@ -445,8 +446,12 @@ pub fn launch_window(title_data: Vec<TitleContainer>, img_cache: HashMap<String,
 
     let mut menu = Menu::new(title_data);
     // menu.add_texture("derp2.png","asdf", &display);
-    menu.add_texture_from_path("whitesquare.png", "whitesquare".to_string(), &display);
-    menu.add_texture_from_path("popup.png", "popup".to_string(), &display);
+    // menu.add_texture_from_path("whitesquare.png", "whitesquare".to_string(), &display);
+    // menu.add_texture_from_path("popup.png", "popup".to_string(), &display);
+    let white_square_img: RgbImage = image::load_from_memory(include_bytes!("whitesquare.png")).unwrap().to_rgb8();
+    let popup_img: RgbImage = image::load_from_memory(include_bytes!("popup.png")).unwrap().to_rgb8();
+    menu.add_texture_from_rgb(white_square_img, "whitesquare".to_string(), &display);
+    menu.add_texture_from_rgb(popup_img, "popup".to_string(), &display);
     for (key, img) in img_cache{
         menu.add_texture_from_rgb(img, key, &display);
     }
@@ -475,7 +480,6 @@ pub fn launch_window(title_data: Vec<TitleContainer>, img_cache: HashMap<String,
                 glutin::event::WindowEvent::KeyboardInput { .. } => {
                     let input = keyboard_input(&event, &mut debounce);
                     if input != (0,0) {
-                        println!("{} {}", input.0, input.1);
                         menu.change_selected_tile(input);
                     }
                     redraw = true;
