@@ -12,6 +12,8 @@ use home::Container;
 use dynset::Dynset;
 use std::collections::{HashMap, HashSet};
 use image::{RgbImage};
+use std::fmt::Display;
+use serde::export::Formatter;
 
 #[derive(Debug)]
 struct ConvertError(String);
@@ -73,9 +75,10 @@ pub struct Title{
 
 }
 
-impl Title {
-    pub(crate) fn to_string(&self) -> String {
-         format!("Title: {}\nRelease Date: {}\nRating: {}", self.name, self.release_date, self.rating)
+impl Display for Title {
+
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Title: {}\nRelease Date: {}\nRating: {}", self.name, self.release_date, self.rating)
     }
 }
 
@@ -89,7 +92,7 @@ pub struct TitleContainer{
 }
 
 
-fn get_dynamic_set_ref(set_ref: &String) -> Result<Vec<Title>, Box<dyn Error>>{
+fn get_dynamic_set_ref(set_ref: &str) -> Result<Vec<Title>, Box<dyn Error>>{
     let url = format!("https://cd-static.bamgrid.com/dp-117731241344/sets/{}.json", set_ref);
     let resp = reqwest::blocking::get(url.as_str())?;
     let json_str = resp.text().unwrap();
@@ -159,7 +162,7 @@ fn get_dynamic_set_ref(set_ref: &String) -> Result<Vec<Title>, Box<dyn Error>>{
                     None => i.text.title.full.program.ok_or(EMSG)?.default.content
                 },
                 release_date: match i.releases.get(0) {
-                    Some(e) => e.release_date.clone().unwrap_or("".to_string()),
+                    Some(e) => e.release_date.clone().unwrap_or_else(||"".to_string()),
                     None => "".to_string()
                 },
                 rating: match i.ratings.get(0) {
@@ -238,7 +241,7 @@ fn get_curated_items(con: Container) -> Result<Vec<Title>, Box<dyn Error>>{
     Ok(itemv)
 }
 
-pub fn get_image_cache(tc: &Vec<TitleContainer>)-> HashMap<String, RgbImage>{
+pub fn get_image_cache(tc: &[TitleContainer])-> HashMap<String, RgbImage>{
     let mut urls: HashSet<String> = HashSet::new();
     let mut hm = HashMap::new();
     for t in tc{
@@ -313,8 +316,8 @@ pub fn load_home_data()  -> Result<Vec<TitleContainer>, Box<dyn Error>> {
         let tc = TitleContainer{
             set_id: setid,
             set_type: stype,
-            style: style,
-            name: name,
+            style,
+            name,
             items: itemv
         };
 

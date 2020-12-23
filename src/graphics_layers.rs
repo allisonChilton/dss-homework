@@ -207,7 +207,7 @@ impl Menu{
         }
 
         let hm = HashMap::new();
-        let ctile = active_rows.get(0).unwrap().get(0).unwrap().center.clone();
+        let ctile = active_rows.get(0).unwrap().get(0).unwrap().center;
         Menu{ selected_tile: [0; 2],
             tiles: active_rows,
             texture_map: hm,
@@ -216,7 +216,7 @@ impl Menu{
                 size: [Menu::selection_backdrop_size(); 2],
                 texture_key: "whitesquare".to_string(),
             },
-            headings: headings,
+            headings,
             popup: Rectangle{
                 center: [SCREEN_WIDTH as f32 / 2., SCREEN_HEIGHT as f32 / 2.],
                 size: [SCREEN_WIDTH as f32 * 0.5, SCREEN_HEIGHT as f32 * 0.9],
@@ -225,7 +225,7 @@ impl Menu{
             popup_enabled: false,
             row_offset: 0,
             col_offsets: vec![0; titles.len()],
-            titles: titles,
+            titles,
             title_desc_lookup: tlookup
         }
     }
@@ -262,13 +262,11 @@ impl Menu{
             self.popup_enabled = false;
         }
         let (lx, ly) = (self.selected_tile[0] as usize, self.selected_tile[1] as usize);
-        match self{
-            Menu{ref mut tiles, ..} => match tiles[lx][ly]{
-                Rectangle{ref mut size, .. } => {
-                    size[0] = TILE_SIZE;
-                    size[1] = TILE_SIZE;
-                }
-            }
+        {
+            let Menu { ref mut tiles, .. } = self;
+            let Rectangle { ref mut size, .. } = tiles[lx][ly];
+            size[0] = TILE_SIZE;
+            size[1] = TILE_SIZE;
         }
 
         self.selected_tile[0] += y;
@@ -301,24 +299,22 @@ impl Menu{
         // println!("Current Row: {}, Col Offset: {}",current_row, self.col_offsets[current_row]);
         let (nx, ny) = (self.selected_tile[0] as usize, self.selected_tile[1] as usize);
         let sel_center = self.selection_square.borrow_mut().center.as_mut();
-        match self{
-            Menu{ref mut tiles, ..} => match tiles[nx][ny]{
-                Rectangle{ref mut size, center, .. } => {
-                    size[0] = Menu::selected_tile_size();
-                    size[1] = Menu::selected_tile_size();
-                    sel_center[0] = center[0];
-                    sel_center[1] = center[1];
-                }
-            }
+        {
+            let Menu { ref mut tiles, .. } = self;
+            let Rectangle { ref mut size, center, .. } = tiles[nx][ny];
+            size[0] = Menu::selected_tile_size();
+            size[1] = Menu::selected_tile_size();
+            sel_center[0] = center[0];
+            sel_center[1] = center[1];
         }
     }
 
     fn selection_backdrop_size()->f32{
-        return ((TILE_SIZE as f32) + (PADDING as f32 * 1.25) + 4.) as f32;
+        ((TILE_SIZE as f32) + (PADDING as f32 * 1.25) + 4.) as f32
     }
 
     fn selected_tile_size()->f32{
-        return (TILE_SIZE as f32 + (PADDING as f32 * 1.25)) as f32;
+        (TILE_SIZE as f32 + (PADDING as f32 * 1.25)) as f32
     }
 
     fn x_y_to_mat(x: f32, y: f32) -> (f32, f32) {
@@ -336,7 +332,7 @@ impl Menu{
         (retx , rety)
     }
 
-    fn write_popup(&self, tstr: &String, frame: &mut glium::Frame, text_system: &glium_text::TextSystem, font: &glium_text::FontTexture){
+    fn write_popup(&self, tstr: &str, frame: &mut glium::Frame, text_system: &glium_text::TextSystem, font: &glium_text::FontTexture){
         let strings = tstr.lines();
         let (xoffset, yoffset) = self.popup.get_nw_corner();
 
@@ -354,6 +350,7 @@ impl Menu{
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw(&mut self, frame: &mut glium::Frame, indices: &glium::IndexBuffer<u16>, display: &glium::Display,
             program: &glium::Program, perspective: [[f32; 4]; 4], text_system: &glium_text::TextSystem, font: &glium_text::FontTexture) {
 
@@ -445,9 +442,6 @@ pub fn launch_window(title_data: Vec<TitleContainer>, img_cache: HashMap<String,
     let mut debounce = false;
 
     let mut menu = Menu::new(title_data);
-    // menu.add_texture("derp2.png","asdf", &display);
-    // menu.add_texture_from_path("whitesquare.png", "whitesquare".to_string(), &display);
-    // menu.add_texture_from_path("popup.png", "popup".to_string(), &display);
     let white_square_img: RgbImage = image::load_from_memory(include_bytes!("whitesquare.png")).unwrap().to_rgb8();
     let popup_img: RgbImage = image::load_from_memory(include_bytes!("popup.png")).unwrap().to_rgb8();
     menu.add_texture_from_rgb(white_square_img, "whitesquare".to_string(), &display);
@@ -471,11 +465,10 @@ pub fn launch_window(title_data: Vec<TitleContainer>, img_cache: HashMap<String,
         let next_frame_time = std::time::Instant::now() +
             std::time::Duration::from_nanos(166_666_667);
         *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
-        match ev {
-            glutin::event::Event::WindowEvent { event, .. } => match event {
+        if let glutin::event::Event::WindowEvent { event, .. } = ev {
+            match event {
                 glutin::event::WindowEvent::CloseRequested => {
                     *control_flow = glutin::event_loop::ControlFlow::Exit;
-                    return;
                 },
                 glutin::event::WindowEvent::KeyboardInput { .. } => {
                     let input = keyboard_input(&event, &mut debounce);
@@ -485,9 +478,8 @@ pub fn launch_window(title_data: Vec<TitleContainer>, img_cache: HashMap<String,
                     redraw = true;
                 }
 
-                _ => return,
-            },
-            _ => (),
+                _ => {},
+            }
         }
     });
 
